@@ -1,69 +1,45 @@
-import numpy as np
+import streamlit as st
 import matplotlib.pyplot as plt
-import ipywidgets as widgets
-import statsmodels.api as sm
-from IPython.display import display, clear_output
+import numpy as np
 
-# Set visual style for the projector
-plt.rcParams.update({'font.size': 14})
-out = widgets.Output()
+# Page configuration
+st.set_page_config(page_title="Regression Simulator", layout="wide")
 
-def run_simulation(n_obs, noise_level, seed):
-    with out:
-        clear_output(wait=True)
-        
-        # 1. Generate Data
-        np.random.seed(seed)
-        x = np.linspace(0, 10, n_obs)
-        y = 5.0 + 1.6 * x + np.random.normal(0, noise_level, size=n_obs)
+st.title("📈 Linear Regression Simulation")
+st.markdown("Adjust the parameters in the sidebar to see how the regression line changes.")
 
-        # 2. Fit OLS
-        X = sm.add_constant(x) 
-        model = sm.OLS(y, X).fit()
-        
-        # 3. Plot
-        fig, ax = plt.subplots(figsize=(12, 6))
-        ax.scatter(x, y, color='#3498db', alpha=0.6, label='Accounting Data (Actuals)')
-        ax.plot(x, model.predict(X), color='#e74c3c', linewidth=4, label='OLS Estimate (Our Guess)')
-        ax.plot(x, 5.0 + 1.6 * x, color='#2ecc71', linestyle='--', label='True Cost Function')
-        ax.set_title(f"Accounting Regression: Sample Size = {n_obs}", fontsize=18)
-        ax.set_xlabel("Activity Level (Units)", fontsize=14)
-        ax.set_ylabel("Total Cost ($)", fontsize=14)
-        ax.legend(loc='upper left')
-        plt.show()
+# --- SIDEBAR CONTROLS ---
+with st.sidebar:
+    st.header("Model Parameters")
+    # These replace your old ipywidgets
+    slope = st.slider("True Slope (m)", -5.0, 5.0, 2.0, 0.1)
+    intercept = st.slider("True Intercept (b)", -10.0, 10.0, 0.0, 0.5)
+    noise = st.slider("Noise Level", 0.0, 10.0, 2.0, 0.1)
+    n_points = st.number_input("Number of Data Points", 10, 500, 100)
 
-        # 4. Large Font Statistical Table
-        print("="*70)
-        print(f"{'REGRESSION AUDIT REPORT':^70}")
-        print("="*70)
-        print(f"{'R-Squared (Model Fit):':<30} {model.rsquared:.4f}")
-        print("-" * 70)
-        print(f"{'Component':<25} | {'Estimate':<10} | {'t-Stat':<10} | {'P-Value':<10}")
-        print("-" * 70)
-        
-        names = ['Fixed Cost (Int)', 'Variable Cost (Slope)']
-        for i, name in enumerate(names):
-            p = model.pvalues[i]
-            star = "***" if p < 0.01 else "**" if p < 0.05 else ""
-            print(f"{name:<25} | {model.params[i]:<10.3f} | {model.tvalues[i]:<10.2f} | {p:<10.4f} {star}")
-        print("="*70)
-        print("Notes: P-Value < 0.05 (**) means we are 95% confident the cost is not random.")
+# --- SIMULATION LOGIC ---
+# Create random data based on user input
+x = np.linspace(0, 10, n_points)
+# Generate y = mx + b + random noise
+noise_array = np.random.normal(0, noise, size=n_points)
+y = (slope * x) + intercept + noise_array
 
-# UI Logic
-n_slider = widgets.IntSlider(min=10, max=1000, step=10, value=30, description='Sample (N)')
-noise_slider = widgets.FloatSlider(min=0.5, max=15.0, step=0.5, value=4.0, description='Noise')
-refresh_btn = widgets.Button(description="Refresh Data", button_style='success', icon='sync')
+# --- VISUALIZATION ---
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.scatter(x, y, alpha=0.5, label="Observed Data")
+ax.plot(x, slope * x + intercept, color='red', linewidth=2, label=f"True Line: y={slope}x+{intercept}")
 
-state = type('State', (), {'seed': 42})
-def on_refresh(b):
-    state.seed = np.random.randint(0, 10000)
-    run_simulation(n_slider.value, noise_slider.value, state.seed)
-def on_change(change):
-    run_simulation(n_slider.value, noise_slider.value, state.seed)
+ax.set_xlabel("X (Independent Variable)")
+ax.set_ylabel("Y (Dependent Variable)")
+ax.legend()
+ax.grid(True, linestyle='--', alpha=0.7)
 
-refresh_btn.on_click(on_refresh)
-n_slider.observe(on_change, names='value')
-noise_slider.observe(on_change, names='value')
+# Display the plot in the main area
+st.pyplot(fig)
 
-display(widgets.VBox([widgets.HBox([n_slider, noise_slider, refresh_btn]), out]))
-run_simulation(30, 4.0, 42)
+# Show statistics below the plot
+col1, col2 = st.columns(2)
+with col1:
+    st.metric("Total Points", n_points)
+with col2:
+    st.write(f"**Current Formula:** $y = {slope}x + {intercept} + \epsilon$")
